@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "studio.vibecircles.co.za" }],
+      "destination": "/studio/:path*"
+    }
+  ]
+}
