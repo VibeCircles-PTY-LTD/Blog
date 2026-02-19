@@ -1,13 +1,7 @@
-diff --git a/c:\Users\kagis\OneDrive\Desktop\New folder\New folder\.github/dependabot.yml b/c:\Users\kagis\OneDrive\Desktop\New folder\New folder\.github/dependabot.yml
-new file mode 100644
---- /dev/null
-+++ b/c:\Users\kagis\OneDrive\Desktop\New folder\New folder\.github/dependabot.yml
-@@ -0,0 +1,7 @@
-+version: 2
-+updates:
-+  - package-ecosystem: "npm"
-+    directory: "/"
-+    schedule:
-+      interval: "weekly"
-+    open-pull-requests-limit: 5
-
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
