@@ -16,7 +16,7 @@ new file mode 100644
 +
 +## Reporting a Vulnerability
 +
-+Please report security issues by emailing `security@vibecircles.com`.
++Please report security issues by emailing `security@vibecircles.co.za`.
 +
 +What to include:
 +- A clear description of the issue and impact
