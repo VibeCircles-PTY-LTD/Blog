@@ -3,9 +3,9 @@
 Next.js blog app backed by Sanity CMS. The Sanity Studio is mounted at `/studio` in the app.
 
 **Tech Stack**
-- Next.js 14 (App Router)
-- React 18
-- Sanity v3 + next-sanity
+- Next.js 16 (App Router)
+- React 19
+- Sanity v5 + next-sanity
 
 **Getting Started**
 1. Install dependencies: `npm install`
@@ -20,10 +20,12 @@ Next.js blog app backed by Sanity CMS. The Sanity Studio is mounted at `/studio`
 - `NEXT_PUBLIC_SANITY_DATASET`
 - `NEXT_PUBLIC_SANITY_API_VERSION`
 - `SANITY_API_READ_TOKEN`
+- `ADMIN_API_SECRET`
+- `SANITY_WRITE_TOKEN`
 - `SANITY_STUDIO_PROJECT_ID`
 - `SANITY_STUDIO_DATASET`
 
-See `.env.example` for details.
+See `.env.example` for details on required tokens and secrets.
 
 **Scripts**
 - `npm run dev` - Start Next.js dev server
