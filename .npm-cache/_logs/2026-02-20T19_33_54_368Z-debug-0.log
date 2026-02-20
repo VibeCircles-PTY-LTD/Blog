@@ -1,0 +1,66 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.7.0
+2 info using node@v24.12.0
+3 silly config load:file:C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npmrc
+5 silly config load:file:C:\Users\kagis\.npmrc
+6 silly config load:file:C:\Users\kagis\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install eslint@latest
+8 verbose argv "install" "eslint@latest" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_logs\2026-02-20T19_33_54_368Z-
+10 verbose logfile C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_logs\2026-02-20T19_33_54_368Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:2348810240 maxSize:587202560 maxEntrySize:293601280
+13 silly packumentCache corgi:https://registry.npmjs.org/eslint cache-miss
+14 http fetch GET 200 https://registry.npmjs.org/eslint 548ms (cache miss)
+15 verbose type system
+16 verbose stack FetchError: Invalid response body while trying to fetch https://registry.npmjs.org/eslint: EPERM: operation not permitted, unlink 'C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_cacache\tmp\7cfcc017'
+16 verbose stack     at C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\minipass-fetch\lib\body.js:170:15
+16 verbose stack     at async Response.json (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\minipass-fetch\lib\body.js:75:17)
+16 verbose stack     at async RegistryFetcher.packument (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\pacote\lib\registry.js:98:25)
+16 verbose stack     at async RegistryFetcher.manifest (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\pacote\lib\registry.js:128:23)
+16 verbose stack     at async C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:527:22
+16 verbose stack     at async Promise.all (index 0)
+16 verbose stack     at async #add (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:516:5)
+16 verbose stack     at async #applyUserRequestsToNode (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:485:7)
+16 verbose stack     at async #applyUserRequests (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:421:7)
+16 verbose stack     at async Arborist.buildIdealTree (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:169:7)
+17 error code EPERM
+18 error syscall unlink
+19 error path C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_cacache\tmp\7cfcc017
+20 error errno EPERM
+21 error FetchError: Invalid response body while trying to fetch https://registry.npmjs.org/eslint: EPERM: operation not permitted, unlink 'C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_cacache\tmp\7cfcc017'
+21 error     at C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\minipass-fetch\lib\body.js:170:15
+21 error     at async Response.json (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\minipass-fetch\lib\body.js:75:17)
+21 error     at async RegistryFetcher.packument (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\pacote\lib\registry.js:98:25)
+21 error     at async RegistryFetcher.manifest (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\pacote\lib\registry.js:128:23)
+21 error     at async C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:527:22
+21 error     at async Promise.all (index 0)
+21 error     at async #add (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:516:5)
+21 error     at async #applyUserRequestsToNode (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:485:7)
+21 error     at async #applyUserRequests (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:421:7)
+21 error     at async Arborist.buildIdealTree (C:\Users\kagis\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\arborist\lib\arborist\build-ideal-tree.js:169:7) {
+21 error   code: 'EPERM',
+21 error   errno: 'EPERM',
+21 error   syscall: 'unlink',
+21 error   path: 'C:\\Users\\kagis\\OneDrive\\Desktop\\New folder\\New folder\\.npm-cache\\_cacache\\tmp\\7cfcc017',
+21 error   type: 'system'
+21 error }
+22 error
+22 error The operation was rejected by your operating system.
+22 error It's possible that the file was already in use (by a text editor or antivirus),
+22 error or that you lack permissions to access it.
+22 error
+22 error If you believe this might be a permissions issue, please double-check the
+22 error permissions of the file and its containing directories, or try running
+22 error the command again as root/Administrator.
+23 silly unfinished npm timer reify 1771616035063
+24 silly unfinished npm timer reify:loadTrees 1771616035064
+25 silly unfinished npm timer idealTree:userRequests 1771616035703
+26 verbose cwd C:\Users\kagis\OneDrive\Desktop\New folder\New folder
+27 verbose os Windows_NT 10.0.26200
+28 verbose node v24.12.0
+29 verbose npm  v11.7.0
+30 verbose exit 1
+31 verbose code 1
+32 error A complete log of this run can be found in: C:\Users\kagis\OneDrive\Desktop\New folder\New folder\.npm-cache\_logs\2026-02-20T19_33_54_368Z-debug-0.log

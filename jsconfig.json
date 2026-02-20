@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "jsx": "preserve",
+    "allowJs": true,
+    "checkJs": false,
     "ignoreDeprecations": "6.0"
   }
 }
