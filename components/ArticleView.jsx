@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRef, useState } from "react";
 import { C, CAT_COLORS } from "../lib/blog-data";
@@ -50,7 +50,7 @@ export default function ArticleView({ slug, posts = [] }) {
         <Orb top="-15%" right="-5%" size={600} color={catColor} opacity={0.09} />
         <div style={{ maxWidth: "900px", margin: "0 auto", position: "relative", zIndex: 2 }}>
           <div style={{ animation: "fadeUp .45s ease forwards", opacity: 0, marginBottom: "20px" }}>
-            <button onClick={goBack} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={(e) => { e.target.style.color = C.white; }} onMouseLeave={(e) => { e.target.style.color = C.dimmer; }}>← Back</button>
+            <button onClick={goBack} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={(e) => { e.target.style.color = C.white; }} onMouseLeave={(e) => { e.target.style.color = C.dimmer; }}>? Back</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px", flexWrap: "wrap", animation: "fadeUp .5s .05s ease forwards", opacity: 0 }}>
             <CatBadge cat={post.cat} size="lg" color={catColor} onClick={() => navigate(routes.category(post.cat))} />
@@ -83,7 +83,7 @@ export default function ArticleView({ slug, posts = [] }) {
           <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: "220px" }}>
               <h3 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "22px", color: C.white, lineHeight: 1.05, marginBottom: "6px" }}>Weekly drops from the VibeCircle Journal.</h3>
-              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dim, lineHeight: 1.6 }}>City intel, creator strategies, and geo-social playbooks — straight to your inbox.</p>
+              <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dim, lineHeight: 1.6 }}>City intel, creator strategies, and geo-social playbooks ? straight to your inbox.</p>
             </div>
             <div style={{ width: "260px" }}>
               <NewsletterForm color={catColor} />
@@ -129,6 +129,8 @@ export default function ArticleView({ slug, posts = [] }) {
       </section>
     </div>
   );
-}
-
-
+}
+
+
+
+

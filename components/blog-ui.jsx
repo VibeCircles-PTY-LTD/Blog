@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { C, CAT_COLORS } from "../lib/blog-data";
@@ -178,7 +178,7 @@ export function AuthorChip({ author, role, avatar, avatarUrl, color = C.orange, 
 export function NewsletterForm({ color = C.orange }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  if (sent) return <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "15px", color, padding: "8px 0" }}>You're in. âœ“</div>;
+  if (sent) return <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "15px", color, padding: "8px 0" }}>You're in. </div>;
   return (
     <div style={{ display: "flex", gap: "8px" }}>
       <input
@@ -271,7 +271,7 @@ export function FeaturedCard({ post, navigate }) {
                   borderRadius: "2px",
                   boxShadow: h ? `0 8px 24px ${catColor}50` : "",
                   transition: "box-shadow .3s",
-                }}>Read â†’</span>
+                }}>Read </span>
               </div>
             </div>
           </div>
@@ -305,7 +305,7 @@ export function PostCard({ post, navigate, variant = "default" }) {
           <h4 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(14px,1.6vw,18px)", color: h ? catColor : C.white, lineHeight: 1.05, marginBottom: "4px", transition: "color .2s", letterSpacing: "-.2px" }}>{post.title}</h4>
           <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{post.sub}</p>
         </div>
-        <div style={{ color: h ? catColor : "rgba(255,255,255,0.15)", fontSize: "14px", flexShrink: 0, marginTop: "14px", transition: "color .2s, transform .2s", transform: h ? "translateX(3px)" : "none" }}>â†’</div>
+        <div style={{ color: h ? catColor : "rgba(255,255,255,0.15)", fontSize: "14px", flexShrink: 0, marginTop: "14px", transition: "color .2s, transform .2s", transform: h ? "translateX(3px)" : "none" }}></div>
       </div>
     );
   }
@@ -361,13 +361,13 @@ export function ShareButtons({ post, onToast }) {
   };
 
   const shareX = () => {
-    const text = encodeURIComponent(`"${post.title}" â€” VibeCircle Blog`);
+    const text = encodeURIComponent(`"${post.title}"  VibeCircle Blog`);
     window.open(`https://x.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
   };
 
   const btns = [
-    { label: "Copy Link", icon: "ðŸ”—", action: copyLink },
-    { label: "Share on X", icon: "ð•", action: shareX },
+    { label: "Copy Link", icon: "", action: copyLink },
+    { label: "Share on X", icon: "", action: shareX },
   ];
 
   return (
@@ -451,5 +451,7 @@ export function ReadingProgress({ articleRef, post }) {
 
   return <ProgressBar progress={progress} catColor={catColor} />;
 }
+
+
 
 

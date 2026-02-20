@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { C, CAT_COLORS } from "../lib/blog-data";
 import { routes } from "../lib/routes";
@@ -24,7 +24,7 @@ export default function AuthorPage({ author, posts = [] }) {
         <Orb top="-10%" right="-5%" size={500} color={color} opacity={0.1} />
         <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative", zIndex: 2 }}>
           <div style={{ animation: "fadeUp .45s ease forwards", opacity: 0, marginBottom: "28px" }}>
-            <button onClick={() => navigate(routes.home())} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={(e) => { e.target.style.color = C.white; }} onMouseLeave={(e) => { e.target.style.color = C.dimmer; }}>← All Posts</button>
+            <button onClick={() => navigate(routes.home())} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={(e) => { e.target.style.color = C.white; }} onMouseLeave={(e) => { e.target.style.color = C.dimmer; }}>? All Posts</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap", animation: "fadeUp .5s .05s ease forwards", opacity: 0, marginBottom: "24px" }}>
             {author.imageUrl ? (
@@ -50,5 +50,7 @@ export default function AuthorPage({ author, posts = [] }) {
     </div>
   );
 }
+
+
 
 

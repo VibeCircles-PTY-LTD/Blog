@@ -11,6 +11,10 @@ export async function GET(req) {
     return new NextResponse("Invalid secret", { status: 401 });
   }
 
+  if (!slug.startsWith("/") || slug.startsWith("//") || slug.includes("://")) {
+    return new NextResponse("Invalid slug", { status: 400 });
+  }
+
   if (disable) {
     draftMode().disable();
     return NextResponse.redirect(new URL(slug, req.url));

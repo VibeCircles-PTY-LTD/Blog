@@ -33,6 +33,23 @@ export const post = defineType({
     }),
 
     defineField({
+      name: "coverImage",
+      title: "Cover Image",
+      type: "image",
+      group: "content",
+      options: { hotspot: true },
+      fields: [
+        {
+          name: "alt",
+          type: "string",
+          title: "Alternative Text",
+          description: "Important for accessibility and SEO.",
+          validation: (Rule) => Rule.required(),
+        },
+      ],
+    }),
+
+    defineField({
       name: "body",
       title: "Body",
       type: "blockContent",
@@ -104,15 +121,6 @@ export const post = defineType({
     }),
 
     defineField({
-      name: "emoji",
-      title: "Cover Emoji",
-      type: "string",
-      group: "settings",
-      description: "Single emoji used as visual identity for the post",
-      validation: (Rule) => Rule.required().max(4),
-    }),
-
-    defineField({
       name: "thumbGradStart",
       title: "Thumbnail Gradient - Start Color",
       type: "string",
@@ -150,15 +158,14 @@ export const post = defineType({
       author: "author.name",
       category: "category.title",
       publishedAt: "publishedAt",
-      emoji: "emoji",
       featured: "featured",
     },
-    prepare({ title, author, category, publishedAt, emoji, featured }) {
+    prepare({ title, author, category, publishedAt, featured }) {
       const date = publishedAt
         ? new Date(publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : "Unpublished";
       return {
-        title: `${featured ? "* " : ""}${emoji ?? ""} ${title}`,
+        title: `${featured ? "* " : ""}${title}`,
         subtitle: `${author} - ${category} - ${date}`,
       };
     },

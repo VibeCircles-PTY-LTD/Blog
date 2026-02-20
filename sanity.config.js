@@ -1,4 +1,3 @@
-import React from "react";
 import { defineConfig } from "sanity";
 import { deskTool } from "sanity/desk";
 import { schemaTypes } from "./sanity/schemaTypes";

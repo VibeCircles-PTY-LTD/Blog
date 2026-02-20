@@ -18,23 +18,26 @@ export default function BlogIndex({ posts = [], authors = [], filterCat = null }
   }, [filterCat, search]);
 
   const categories = useMemo(() => {
-    const map = new Map();
-    posts.forEach((p) => {
-      if (!p.cat) return;
-      if (!map.has(p.cat)) {
-        map.set(p.cat, {
-          title: p.cat,
-          color: p.catColor || CAT_COLORS[p.cat] || C.orange,
-        });
-      }
-    });
-    return [...map.values()];
-  }, [posts]);
+  const map = new Map();
+  Object.keys(CAT_COLORS || {}).forEach((cat) => {
+    map.set(cat, { title: cat, color: CAT_COLORS[cat] || C.orange });
+  });
+  posts.forEach((p) => {
+    if (!p.cat) return;
+    if (!map.has(p.cat)) {
+      map.set(p.cat, {
+        title: p.cat,
+        color: p.catColor || CAT_COLORS[p.cat] || C.orange,
+      });
+    }
+  });
+  return [...map.values()];
+}, [posts]);
 
   if (posts.length === 0) {
     return (
       <div style={{ background: C.bg, color: C.white, minHeight: "100vh", padding: "140px 24px", textAlign: "center" }}>
-        <div style={{ fontSize: "42px", opacity: 0.3, marginBottom: "10px" }}>📝</div>
+        <div style={{ fontSize: "42px", opacity: 0.3, marginBottom: "10px" }}>??</div>
         <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "28px", marginBottom: "8px" }}>No posts yet</div>
         <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "14px", color: C.dimmer }}>Publish your first post in the Studio.</p>
       </div>
@@ -51,13 +54,20 @@ export default function BlogIndex({ posts = [], authors = [], filterCat = null }
     if (filterCat) items = items.filter((p) => p.cat === filterCat);
     if (search.trim()) {
       const q = search.toLowerCase();
-      items = items.filter((p) =>
-        p.title.toLowerCase().includes(q)
-        || p.sub.toLowerCase().includes(q)
-        || (p.bodyText || "").toLowerCase().includes(q)
-        || p.author.toLowerCase().includes(q)
-        || p.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      items = items.filter((p) => {
+        const title = (p.title || "").toLowerCase();
+        const sub = (p.sub || "").toLowerCase();
+        const body = (p.bodyText || "").toLowerCase();
+        const author = (p.author || "").toLowerCase();
+        const tags = Array.isArray(p.tags) ? p.tags : [];
+        return (
+          title.includes(q)
+          || sub.includes(q)
+          || body.includes(q)
+          || author.includes(q)
+          || tags.some((t) => String(t || "").toLowerCase().includes(q))
+        );
+      });
     }
     return items;
   }, [filterCat, search, posts]);
@@ -85,14 +95,14 @@ export default function BlogIndex({ posts = [], authors = [], filterCat = null }
                 onMouseEnter={(e) => { e.target.style.color = C.white; }}
                 onMouseLeave={(e) => { e.target.style.color = C.dimmer; }}
               >
-                ← All posts
+                ? All posts
               </button>
             </Reveal>
           ) : (
             <div>
               <div style={{ animation: "fadeUp .5s ease forwards", opacity: 0, marginBottom: "16px" }}><Tag>VibeCircle Journal</Tag></div>
               <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(56px,9vw,110px)", lineHeight: 0.88, color: C.white, animation: "fadeUp .52s .07s ease forwards", opacity: 0, marginBottom: "12px", letterSpacing: "-2px" }}>
-                THE<br /><span style={{ WebkitTextStroke: "2px #FF6B00", color: "transparent" }}>PULSE.</span>
+                THE<br /><span style={{ WebkitTextStroke: "2px #FF6B00", color: "transparent", letterSpacing: "2px" }}>PULSE<span style={{ marginLeft: "6px" }}>.</span></span>
               </h1>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "clamp(14px,1.6vw,18px)", color: C.dim, maxWidth: "480px", lineHeight: 1.75, animation: "fadeUp .52s .14s ease forwards", opacity: 0 }}>
                 Insights on city culture, the creator economy, and the technology making it all move.
@@ -212,7 +222,11 @@ export default function BlogIndex({ posts = [], authors = [], filterCat = null }
                       onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                     >
-                      <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", flexShrink: 0 }}>{a.avatar}</div>
+                      {a.imageUrl ? (
+                        <img src={a.imageUrl} alt={a.name} style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,107,0,0.3)", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", flexShrink: 0 }}>{a.avatar}</div>
+                      )}
                       <div style={{ textAlign: "left" }}>
                         <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.white }}>{a.name}</div>
                         <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "10px", color: C.dimmer }}>{a.role}</div>
@@ -250,3 +264,6 @@ export default function BlogIndex({ posts = [], authors = [], filterCat = null }
     </div>
   );
 }
+
+
+

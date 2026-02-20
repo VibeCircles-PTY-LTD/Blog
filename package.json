@@ -9,8 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@sanity/icons": "^3.0.0",
     "@sanity/client": "^7.15.0",
+    "@sanity/icons": "^3.0.0",
+    "acorn-jsx": "^5.3.2",
+    "esrecurse": "^4.3.0",
     "next": "^16.1.6",
     "next-sanity": "^12.1.0",
     "react": "^19.2.4",
@@ -19,7 +21,10 @@
   },
   "overrides": {
     "glob": "10.5.0",
-    "minimatch": "10.2.1",
+    "minimatch": "9.0.5",
     "prismjs": "1.30.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
   }
 }

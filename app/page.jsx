@@ -1,11 +1,11 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// â”€â”€â”€ SANITY INTEGRATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- SANITY INTEGRATION -----------------------------------------------------
 // Set VITE_SANITY_PROJECT_ID in your .env to enable live Sanity data.
 // When not set (or when running as a standalone artifact), falls back to the
-// hardcoded static posts below â€” the blog works fully either way.
+// hardcoded static posts below -- the blog works fully either way.
 //
 // npm install @sanity/client
 //
@@ -22,7 +22,7 @@ const SANITY_VERSION =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_SANITY_API_VERSION) ||
   "2024-01-01";
 
-// Minimal inline Sanity fetch (no SDK needed â€” uses the CDN HTTP API directly)
+// Minimal inline Sanity fetch (no SDK needed -- uses the CDN HTTP API directly)
 async function sanityFetch(query, params = {}) {
   if (!SANITY_PROJECT_ID) return null;
   const encodedQuery = encodeURIComponent(query);
@@ -39,26 +39,27 @@ async function sanityFetch(query, params = {}) {
   }
 }
 
-// â”€â”€â”€ GROQ QUERIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  GROQ QUERIES 
 const CARD_FRAGMENT = `
-  _id, title, "slug": slug.current, subtitle, publishedAt, featured, emoji,
+  _id, title, "slug": slug.current, subtitle, publishedAt, featured,
   thumbGradStart, thumbGradEnd, tags,
+  "coverImageUrl": coverImage.asset->url, "coverImageAlt": coverImage.alt,
   "readTime": round(length(pt::text(body)) / 5 / 200),
-  "author": author->{ name, "slug": slug.current, role, avatarEmoji },
+  "author": author->{ name, "slug": slug.current, role, avatarEmoji, "imageUrl": coalesce(photo.asset->url, image.asset->url) },
   "category": category->{ title, "slug": slug.current, color }
 `;
 
 const QUERIES = {
   allPosts:  `*[_type=="post"] | order(publishedAt desc) { ${CARD_FRAGMENT} }`,
   allCats:   `*[_type=="category"] | order(title asc) { title, "slug": slug.current, color, "count": count(*[_type=="post" && references(^._id)]) }`,
-  allAuthors:`*[_type=="author"] | order(name asc) { name, "slug": slug.current, role, avatarEmoji, bio, "count": count(*[_type=="post" && references(^._id)]) }`,
+  allAuthors:`*[_type=="author"] | order(name asc) { name, "slug": slug.current, role, avatarEmoji, "imageUrl": coalesce(photo.asset->url, image.asset->url), bio, "count": count(*[_type=="post" && references(^._id)]) }`,
   bySlug:    `*[_type=="post" && slug.current==$slug][0] { ${CARD_FRAGMENT}, body[]{ ..., asset-> }, seoDescription }`,
   byCat:     `*[_type=="post" && category->slug.current==$slug] | order(publishedAt desc) { ${CARD_FRAGMENT} }`,
   byAuthor:  `*[_type=="post" && (author->slug.current==$slug || author->name==$slug || author==$slug)] | order(publishedAt desc) { ${CARD_FRAGMENT} }`,
   related:   `*[_type=="post" && category._ref==$catRef && _id!=$id] | order(publishedAt desc)[0...4] { ${CARD_FRAGMENT} }`,
 };
 
-// â”€â”€â”€ SANITY â†’ V2 NORMALIZER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  SANITY  V2 NORMALIZER 
 // Converts a Sanity document to the exact same shape the v2 static posts use,
 // so every component works identically with both sources.
 function normalizeSanityPost(s) {
@@ -79,10 +80,12 @@ function normalizeSanityPost(s) {
     author: s.author?.name ?? "",
     authorSlug: s.author?.slug ?? "",
     authorRole: s.author?.role ?? "",
-    avatar: s.author?.avatarEmoji ?? "âœï¸",
+    avatar: s.author?.avatarEmoji ?? "",
+    authorImageUrl: s.author?.imageUrl ?? s.author?.photo?.asset?.url ?? s.author?.image?.asset?.url ?? "",
     date: dateStr,
-    emoji: s.emoji ?? "ðŸ“",
-    thumbGrad: [s.thumbGradStart ?? "#FF6B00", s.thumbGradEnd ?? "#FF2D78"],
+    thumbGrad: [s.thumbGradStart ?? "#FF6B00", s.thumbGradEnd ?? "#FF6B00"],
+    coverImageUrl: s.coverImageUrl ?? "",
+    coverImageAlt: s.coverImageAlt ?? "",
     tags: s.tags ?? [],
     readTime: s.readTime != null ? `${s.readTime} min read` : "...",
     body: s.body ?? [],    // Portable Text array (or string for static posts)
@@ -90,10 +93,10 @@ function normalizeSanityPost(s) {
 }
 
 function normalizeSanityAuthor(a) {
-  return { name: a.name, slug: a.slug, role: a.role, avatar: a.avatarEmoji, bio: a.bio, count: a.count ?? 0 };
+  return { name: a.name, slug: a.slug, role: a.role, avatar: a.avatarEmoji, imageUrl: a.imageUrl, bio: a.bio, count: a.count ?? 0 };
 }
 
-// â”€â”€â”€ SHARED DATA HOOK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  SHARED DATA HOOK 
 // Fetches from Sanity; returns null on failure so caller can use static fallback.
 function useSanityQuery(query, params, deps) {
   const [data, setData] = useState(null);
@@ -109,7 +112,7 @@ function useSanityQuery(query, params, deps) {
   return { data, done };
 }
 
-// â”€â”€â”€ PORTABLE TEXT â†’ JSX â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  PORTABLE TEXT  JSX 
 // Lightweight inline renderer for Sanity Portable Text bodies.
 // When using @portabletext/react instead, replace with:
 //   import { PortableText } from "@portabletext/react"
@@ -133,12 +136,12 @@ function PortableTextRenderer({ blocks = [], catColor }) {
       i++; continue;
     }
     if (b._type === "callout") {
-      const cc = { info: "#00D4FF", warning: "#FF6B00", tip: "#00C48C", stat: "#FF2D78" }[b.type] || catColor;
+      const cc = { info: "#FF6B00", warning: "#FF6B00", tip: "#FF6B00", stat: "#FF6B00" }[b.type] || catColor;
       nodes.push(<div key={b._key || i} style={{ margin: "24px 0", padding: "18px 22px", background: `${cc}0D`, border: `1px solid ${cc}40`, borderLeft: `4px solid ${cc}`, borderRadius: "0 4px 4px 0" }}><div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "11px", letterSpacing: "3px", color: cc, marginBottom: "5px" }}>{(b.type || "tip").toUpperCase()}</div><p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "15px", color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>{b.text}</p></div>);
       i++; continue;
     }
 
-    // Lists â€” group consecutive list items
+    // Lists  group consecutive list items
     if (b._type === "block" && b.listItem) {
       const listType = b.listItem;
       const items = [];
@@ -167,7 +170,7 @@ function PortableTextRenderer({ blocks = [], catColor }) {
   return <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>{nodes}</div>;
 }
 
-// â”€â”€â”€ GLOBAL CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  GLOBAL CSS 
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -203,19 +206,19 @@ const GLOBAL_CSS = `
 `;
 
 const C = {
-  bg:"#05050A", bg2:"#080812", bg3:"#0C0C18",
-  orange:"#FF6B00", pink:"#FF2D78",
-  blue:"#00D4FF", purple:"#9B59FF", gold:"#FFD700",
-  white:"#FFFFFF", dim:"rgba(255,255,255,.48)",
-  dimmer:"rgba(255,255,255,.22)", border:"rgba(255,107,0,.12)",
+  bg:"#111216", bg2:"#1A1B21", bg3:"#22242B",
+  orange:"#FF6B00", pink:"#FF6B00",
+  blue:"#FF6B00", purple:"#FF6B00", gold:"#FF6B00",
+  white:"#F5F6F8", dim:"rgba(245,246,248,.6)",
+  dimmer:"rgba(245,246,248,.35)", border:"rgba(255,107,0,.16)",
 };
 
 const CAT_COLORS = {
   "incaseyoumissedit": C.orange,
-  "City Enegy": C.pink,
-  "Vibe Theory": C.blue,
-  "trend lab": C.purple,
-  "Digital Anthropology": C.gold,
+  "City Enegy": C.orange,
+  "Vibe Theory": C.orange,
+  "trend lab": C.orange,
+  "Digital Anthropology": C.orange,
 };
 
 // Resolves cat color from static map OR from Sanity post
@@ -223,21 +226,21 @@ function getCatColor(post) {
   return post?.catColor || CAT_COLORS[post?.cat] || C.orange;
 }
 
-// â”€â”€â”€ READING TIME â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  READING TIME 
 function calcReadTime(body) {
   const words = body.trim().split(/\s+/).length;
   return `${Math.max(1, Math.round(words / 200))} min read`;
 }
 
-// â”€â”€â”€ POSTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  POSTS 
 const RAW_POSTS = [
   {
     id:1, slug:"social-gravity", cat:"City Culture", featured:true,
     title:"Social Media Is Dead. Social Gravity Is What's Next.",
     sub:"The era of passive scrolling is over. The platforms that win from here will be the ones that pull people out of their phones and into the streets.",
-    author:"Marcus Webb", authorRole:"CEO & Co-Founder", avatar:"ðŸš€",
+    author:"Marcus Webb", authorRole:"CEO & Co-Founder", avatar:"",
     date:"Feb 12, 2026", published:"2026-02-12",
-    emoji:"ðŸŒ", thumbGrad:["#FF6B00","#FF2D78"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Future of Social","City Discovery","VibeCircle Vision"],
     body:`For the past decade, social media has optimized for one thing: keeping you on the app. More scroll. More dopamine. More time stolen from the world happening right outside your window.
 
@@ -245,13 +248,13 @@ We built VibeCircle from a different premise entirely. What if a social platform
 
 **The Problem with Feeds**
 
-Traditional social feeds are built on engagement at any cost. The algorithm doesn't care if you actually did anything meaningful â€” it just cares that you didn't leave. This is why you can spend an hour on TikTok and feel exactly like you did before you opened it. Entertainment without gravity.
+Traditional social feeds are built on engagement at any cost. The algorithm doesn't care if you actually did anything meaningful  it just cares that you didn't leave. This is why you can spend an hour on TikTok and feel exactly like you did before you opened it. Entertainment without gravity.
 
 The irony is devastating: a generation of the most connected humans in history has never felt more disconnected from the physical world around them.
 
 **Gravity vs. Friction**
 
-Social gravity is the opposite of social friction. Where friction traps you in the app, gravity pulls you toward something in the real world â€” a venue, a creator event, a neighborhood you've never explored, a brand experience happening two blocks from where you're sitting.
+Social gravity is the opposite of social friction. Where friction traps you in the app, gravity pulls you toward something in the real world  a venue, a creator event, a neighborhood you've never explored, a brand experience happening two blocks from where you're sitting.
 
 This is what we mean when we say VibeCircle is a discovery engine, not a content engine.
 
@@ -259,13 +262,13 @@ We're not asking "what do you want to watch?" We're asking "what's alive near yo
 
 **The Map Is the Product**
 
-The VibeCircle city map isn't a feature. It's the whole philosophy. When a creator posts from a rooftop in Atlanta, that pin appears on the live city map â€” and suddenly Atlanta has a heartbeat. When a restaurant goes live during their Friday dinner rush, that location pulses for everyone nearby.
+The VibeCircle city map isn't a feature. It's the whole philosophy. When a creator posts from a rooftop in Atlanta, that pin appears on the live city map  and suddenly Atlanta has a heartbeat. When a restaurant goes live during their Friday dinner rush, that location pulses for everyone nearby.
 
 Culture becomes visible. Discovery becomes spatial. And the city becomes the algorithm.
 
 **What Comes Next**
 
-We believe the platforms that will matter in 2030 aren't the ones with the most users. They're the ones with the most gravity â€” the ones that consistently pull people off their couches and into meaningful, spontaneous, real-world experiences.
+We believe the platforms that will matter in 2030 aren't the ones with the most users. They're the ones with the most gravity  the ones that consistently pull people off their couches and into meaningful, spontaneous, real-world experiences.
 
 VibeCircle is built to be that platform. This is just the beginning.`,
   },
@@ -273,11 +276,11 @@ VibeCircle is built to be that platform. This is just the beginning.`,
     id:2, slug:"micro-creators-win", cat:"Creator Economy",
     title:"Why Micro-Creators Are Winning the Brand Deal Game",
     sub:"Forget follower counts. Brands are waking up to the reality that 1,000 authentic local fans beats 100,000 passive scrollers every single time.",
-    author:"Amara Osei", authorRole:"Head of Creator Partnerships", avatar:"âš¡",
+    author:"Amara Osei", authorRole:"Head of Creator Partnerships", avatar:"",
     date:"Feb 8, 2026", published:"2026-02-08",
-    emoji:"ðŸ’¸", thumbGrad:["#FF2D78","#9B59FF"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Creator Economy","Brand Deals","Micro-Influencer"],
-    body:`When VibeCircle first launched our Brand Marketplace, we expected established creators â€” people with 50K, 100K, 200K followers â€” to dominate the deal flow.
+    body:`When VibeCircle first launched our Brand Marketplace, we expected established creators  people with 50K, 100K, 200K followers  to dominate the deal flow.
 
 We were wrong.
 
@@ -285,7 +288,7 @@ We were wrong.
 
 In our first six months of marketplace data, creators with under 5,000 followers landed 34% of all completed brand deals. That number stunned us. But when we looked closer, it made complete sense.
 
-Micro-creators â€” the ones who post from their actual neighborhood, who know their followers by name, who go live at the same local coffee shop every Tuesday â€” have something that mega-influencers can't fake: genuine local authority.
+Micro-creators  the ones who post from their actual neighborhood, who know their followers by name, who go live at the same local coffee shop every Tuesday  have something that mega-influencers can't fake: genuine local authority.
 
 **Trust Is the New Follower Count**
 
@@ -301,7 +304,7 @@ The data backs this up across every category on our platform: food, fashion, wel
 
 **The Creator Economy's Next Chapter**
 
-We built VibeCircle's marketplace with no follower minimum because we believed this from day one. Authenticity can't be faked. City presence can't be manufactured. The creators who are truly embedded in their local culture â€” those are the voices that move people.
+We built VibeCircle's marketplace with no follower minimum because we believed this from day one. Authenticity can't be faked. City presence can't be manufactured. The creators who are truly embedded in their local culture  those are the voices that move people.
 
 And brands are finally starting to listen.`,
   },
@@ -309,9 +312,9 @@ And brands are finally starting to listen.`,
     id:3, slug:"geo-ads-future", cat:"Brand Strategy",
     title:"Geo-Advertising in 2026: The End of Wasted Impressions",
     sub:"Blanket digital advertising is dying. Location-aware, moment-specific campaign tools are reshaping how smart brands reach people.",
-    author:"Sofia Reyes", authorRole:"Head of Business Dev", avatar:"ðŸ¤",
+    author:"Sofia Reyes", authorRole:"Head of Business Dev", avatar:"",
     date:"Feb 5, 2026", published:"2026-02-05",
-    emoji:"ðŸ“", thumbGrad:["#00D4FF","#FF6B00"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Geo-Targeting","Advertising","Brand Strategy"],
     body:`For years, digital advertising has operated on a wasteful premise: show the ad to as many people as possible and hope the right ones see it. The result is a world drowning in irrelevant promotions that nobody asked for, nobody wants, and almost nobody acts on.
 
@@ -319,7 +322,7 @@ VibeCircle's advertising model is built on a radically different assumption: the
 
 **The Geography of Intent**
 
-When someone is physically near your location, their intent is fundamentally different than when they're browsing randomly at home. Proximity signals interest. It signals that this person is already in your world â€” they're in your neighborhood, your area, your potential customer zone.
+When someone is physically near your location, their intent is fundamentally different than when they're browsing randomly at home. Proximity signals interest. It signals that this person is already in your world  they're in your neighborhood, your area, your potential customer zone.
 
 Traditional digital ads ignore this entirely. VibeCircle puts geography at the center of every campaign.
 
@@ -331,7 +334,7 @@ The difference isn't the creative. It's the context. An ad for a gym hits differ
 
 **Layering Creator Moments**
 
-The real magic happens when geo-targeting combines with creator content. When a fitness creator posts a "just finished my workout here" video tagged to your gym location, and that post appears in the map feed of every user within a half-mile radius â€” that's not advertising. That's culture.
+The real magic happens when geo-targeting combines with creator content. When a fitness creator posts a "just finished my workout here" video tagged to your gym location, and that post appears in the map feed of every user within a half-mile radius  that's not advertising. That's culture.
 
 This is the VibeCircle model: advertising that's so contextually relevant it doesn't feel like advertising at all.
 
@@ -345,9 +348,9 @@ The future of advertising isn't louder. It's more precise, more human, and more 
     id:4, slug:"campus-strategy", cat:"Campus Life",
     title:"How VibeCircle Conquered 50 Campuses in One Semester",
     sub:"A grassroots ambassador strategy, zero traditional advertising, and an obsessive focus on authentic city energy. Here's exactly how we did it.",
-    author:"Rishi Kapoor", authorRole:"Head of Growth", avatar:"ðŸ“ˆ",
+    author:"Rishi Kapoor", authorRole:"Head of Growth", avatar:"",
     date:"Jan 29, 2026", published:"2026-01-29",
-    emoji:"ðŸŽ“", thumbGrad:["#FF6B00","#FFD700"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Growth","Campus","Ambassador Program"],
     body:`When we decided to go hard on campus growth, the conventional playbook looked like this: buy targeted social ads, partner with student government, throw a launch event, repeat.
 
@@ -355,11 +358,11 @@ We threw out the playbook.
 
 **The Ambassador-First Strategy**
 
-Our hypothesis: the best way to grow a platform built on authentic city culture is to find the people who already embody that culture â€” and give them tools, not scripts.
+Our hypothesis: the best way to grow a platform built on authentic city culture is to find the people who already embody that culture  and give them tools, not scripts.
 
 We identified what we called "cultural connectors" on each campus. Not necessarily the people with the most followers. The people who everyone in their circle turns to when they want to know what's happening. The tastemakers. The scene-setters.
 
-We recruited 2â€“4 ambassadors per campus, gave them Orbit-tier creator accounts, and set one expectation: be authentically you, use the platform the way you'd actually want to use it.
+We recruited 24 ambassadors per campus, gave them Orbit-tier creator accounts, and set one expectation: be authentically you, use the platform the way you'd actually want to use it.
 
 **What We Didn't Do**
 
@@ -369,7 +372,7 @@ Authenticity can smell a corporate play from a mile away. Gen Z especially. The 
 
 **The Viral Mechanics**
 
-Campus social culture has a specific topology: everyone sees what the connectors are doing, and those connectors are deeply tied to specific locations â€” the library, the gym, the late-night spot, the spot outside the main building where everyone smokes.
+Campus social culture has a specific topology: everyone sees what the connectors are doing, and those connectors are deeply tied to specific locations  the library, the gym, the late-night spot, the spot outside the main building where everyone smokes.
 
 When VibeCircle ambassadors started using the live map to broadcast from those exact locations, something clicked. Students started tagging those spots. Those spots became discovery hubs. Discovery hubs attracted more creators. More creators attracted brands.
 
@@ -377,15 +380,15 @@ In eight weeks, 50 campuses went from zero VibeCircle presence to active, self-s
 
 **The Lesson**
 
-You can't manufacture culture. But you can find where it already lives â€” and build the infrastructure that lets it spread.`,
+You can't manufacture culture. But you can find where it already lives  and build the infrastructure that lets it spread.`,
   },
   {
     id:5, slug:"city-map-deep-dive", cat:"Tech & Maps",
     title:"Inside the VibeCircle City Map: How We Built a Living Layer on Top of Cities",
     sub:"Real-time geo-social technology is harder than it sounds. Here's what it took to build a map that actually pulses.",
-    author:"Layla Chen", authorRole:"CTO & Co-Founder", avatar:"âš™ï¸",
+    author:"Layla Chen", authorRole:"CTO & Co-Founder", avatar:"",
     date:"Jan 22, 2026", published:"2026-01-22",
-    emoji:"ðŸ—ºï¸", thumbGrad:["#FFD700","#00D4FF"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Technology","Engineering","Maps"],
     body:`The most common question I get about VibeCircle's tech stack is: "Is the live map actually live?"
 
@@ -393,33 +396,33 @@ Yes. And getting there was significantly harder than we expected.
 
 **The Core Technical Problem**
 
-Building a social map isn't just adding location metadata to posts. The challenge is making a map that feels alive â€” that updates in seconds, renders smoothly across devices, handles massive concurrent loads during peak events, and personalizes what each user sees based on their location, interests, and social graph.
+Building a social map isn't just adding location metadata to posts. The challenge is making a map that feels alive  that updates in seconds, renders smoothly across devices, handles massive concurrent loads during peak events, and personalizes what each user sees based on their location, interests, and social graph.
 
 Traditional mapping solutions like Google Maps or Mapbox give you the geographic layer. The social layer on top is what we built from scratch.
 
 **The Architecture**
 
-Our real-time layer runs on a WebSocket-based event system. Every location-tagged post, live stream, event RSVP, and business promotion creates an "energy event" that propagates through the system and updates the map within 2â€“4 seconds globally.
+Our real-time layer runs on a WebSocket-based event system. Every location-tagged post, live stream, event RSVP, and business promotion creates an "energy event" that propagates through the system and updates the map within 24 seconds globally.
 
-The challenge was density management. During major events â€” festival weekends, game days, concert nights â€” a single city block might have hundreds of active pins simultaneously. We built a custom clustering algorithm that groups nearby events by category while preserving individual pin accessibility, so the map never becomes an unusable blob of overlapping icons.
+The challenge was density management. During major events  festival weekends, game days, concert nights  a single city block might have hundreds of active pins simultaneously. We built a custom clustering algorithm that groups nearby events by category while preserving individual pin accessibility, so the map never becomes an unusable blob of overlapping icons.
 
 **Personalization at Scale**
 
 The map each user sees is personalized in real time based on: their location, who they follow, categories they engage with, time of day, and behavioral signals from their past sessions. This happens in milliseconds through a lightweight ML inference layer that sits between the event stream and the rendering engine.
 
-The goal is that when you open VibeCircle at 11pm on a Friday, the map shows you the exact right things â€” the live sets happening nearby, the friend group at a bar three blocks away, the pop-up market you'd never have known about.
+The goal is that when you open VibeCircle at 11pm on a Friday, the map shows you the exact right things  the live sets happening nearby, the friend group at a bar three blocks away, the pop-up market you'd never have known about.
 
 **What Comes Next**
 
-We're currently building predictive map features â€” using historical patterns and real-time signals to show energy that's about to happen, not just energy that's happening right now. The city map of the future should be as much a forecast as a feed.`,
+We're currently building predictive map features  using historical patterns and real-time signals to show energy that's about to happen, not just energy that's happening right now. The city map of the future should be as much a forecast as a feed.`,
   },
   {
     id:6, slug:"festival-2026", cat:"Music & Events",
     title:"Festival Season 2026: How VibeCircle Is Changing Live Music Forever",
     sub:"From creator coverage to real-time geo-promotion, here's how VibeCircle is embedding itself into the live event ecosystem.",
-    author:"Devon Price", authorRole:"Head of Design", avatar:"ðŸŽ¨",
+    author:"Devon Price", authorRole:"Head of Design", avatar:"",
     date:"Jan 15, 2026", published:"2026-01-15",
-    emoji:"ðŸŽµ", thumbGrad:["#9B59FF","#FF2D78"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Music","Festivals","Live Events"],
     body:`Festival season used to mean a choice between experiencing the moment and capturing it for your audience. VibeCircle is eliminating that tradeoff.
 
@@ -427,19 +430,19 @@ We're currently building predictive map features â€” using historical patte
 
 This past year, we partnered with 8 major music festivals to embed VibeCircle creator coverage into the festival experience itself. Selected creators received full access passes, dedicated backstage zones, and direct lines to PR contacts.
 
-The results redefined what "festival content" looks like. Instead of polished recap videos posted days later, audiences got live map coverage â€” pulsing pins showing which stage was jumping at any given moment, creator streams from inside the crowd, geo-tagged food recommendations from people eating there in real time.
+The results redefined what "festival content" looks like. Instead of polished recap videos posted days later, audiences got live map coverage  pulsing pins showing which stage was jumping at any given moment, creator streams from inside the crowd, geo-tagged food recommendations from people eating there in real time.
 
 Solstice Festival in Austin saw a 3.2x increase in social discovery compared to the previous year, driven almost entirely by VibeCircle creator activity.
 
 **The Map as Festival Program**
 
-Working with festival organizers, we've been developing a feature called "Event Layers" â€” a curated map view that works like a live festival program. Each stage, food vendor, and activity zone has its own VibeCircle presence. Creator content tags to specific zones. Attendees get real-time updates on crowd density, artist set times, and nearby creator activity.
+Working with festival organizers, we've been developing a feature called "Event Layers"  a curated map view that works like a live festival program. Each stage, food vendor, and activity zone has its own VibeCircle presence. Creator content tags to specific zones. Attendees get real-time updates on crowd density, artist set times, and nearby creator activity.
 
 The festival map becomes a living guide, updated by thousands of creators simultaneously.
 
 **The Future of Live Events**
 
-The next frontier is pre-event energy. VibeCircle's map starts building momentum before the festival gates open â€” showing hotel check-ins, travel content, artist arrival clips, and the growing pulse of a city about to erupt.
+The next frontier is pre-event energy. VibeCircle's map starts building momentum before the festival gates open  showing hotel check-ins, travel content, artist arrival clips, and the growing pulse of a city about to erupt.
 
 We believe the best live event experience combines the visceral intensity of being there with the collective energy of everyone else experiencing it simultaneously.
 
@@ -449,23 +452,23 @@ Festival season 2026 is going to feel different. Come find us on the map.`,
     id:7, slug:"creator-fund-breakdown", cat:"Creator Economy",
     title:"Breaking Down VibeCircle's Creator Fund: How We Decide Who Gets Paid",
     sub:"No black boxes. No mystery metrics. Here's the exact formula behind the Creator Fund and how you can maximize your earnings.",
-    author:"Amara Osei", authorRole:"Head of Creator Partnerships", avatar:"âš¡",
+    author:"Amara Osei", authorRole:"Head of Creator Partnerships", avatar:"",
     date:"Jan 10, 2026", published:"2026-01-10",
-    emoji:"ðŸ’Ž", thumbGrad:["#FF2D78","#FF6B00"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Creator Fund","Earnings","Creator Economy"],
     body:`One of the most common questions we get from Orbit creators is: "How exactly does the Creator Fund work?"
 
-We built the fund specifically to be transparent â€” no algorithmic black box, no arbitrary gates. Here's exactly how payouts are calculated.
+We built the fund specifically to be transparent  no algorithmic black box, no arbitrary gates. Here's exactly how payouts are calculated.
 
 **The Four Pillars of Creator Fund Earnings**
 
-Creator Fund payouts are based on four weighted signals: verified map impressions (40%), discovery reach â€” how many new users found you through the map rather than following you directly (30%), genuine engagement quality (20%), and consistency â€” posting frequency and streak bonuses (10%).
+Creator Fund payouts are based on four weighted signals: verified map impressions (40%), discovery reach  how many new users found you through the map rather than following you directly (30%), genuine engagement quality (20%), and consistency  posting frequency and streak bonuses (10%).
 
 Each signal is verified independently to prevent gaming. Map impressions are cross-referenced with real device location data. Discovery reach is measured only for users who had zero prior exposure to your content.
 
 **Why We Weight Discovery So Heavily**
 
-Discovery reach is the metric that actually matters for the VibeCircle ecosystem. A creator who brings genuinely new people into the platform â€” people who found them because of where they were, not because an algorithm pushed them â€” creates compounding value for the whole network.
+Discovery reach is the metric that actually matters for the VibeCircle ecosystem. A creator who brings genuinely new people into the platform  people who found them because of where they were, not because an algorithm pushed them  creates compounding value for the whole network.
 
 That's why a creator with 2,000 followers but exceptional city map presence can out-earn a creator with 20,000 followers who mostly posts without location context.
 
@@ -487,9 +490,9 @@ The goal is simple: if you're genuinely building city presence and bringing real
     id:8, slug:"city-spotlight-atlanta", cat:"City Culture",
     title:"City Spotlight: How Atlanta Became VibeCircle's Most Energetic City",
     sub:"In 12 months, Atlanta went from pilot city to our single highest-activity market. We dug into what made it explode.",
-    author:"Marcus Webb", authorRole:"CEO & Co-Founder", avatar:"ðŸš€",
+    author:"Marcus Webb", authorRole:"CEO & Co-Founder", avatar:"",
     date:"Jan 6, 2026", published:"2026-01-06",
-    emoji:"ðŸ‘", thumbGrad:["#FF6B00","#9B59FF"],
+    emoji:"", thumbGrad:["#FF6B00","#FF6B00"],
     tags:["Atlanta","City Culture","Case Study"],
     body:`We launched VibeCircle in five cities simultaneously. Atlanta wasn't supposed to be our breakout market.
 
@@ -499,9 +502,9 @@ Twelve months later, Atlanta consistently posts the highest creator activity, th
 
 **The Cultural Connector Effect**
 
-Atlanta has an unusually dense network of what we call cultural connectors â€” people who exist at the intersection of music, food, fashion, and community in ways that are genuinely intertwined rather than siloed. A person who's a DJ might also be a restaurant regular who's connected to a streetwear brand that sponsors local artists. These connections are deep and real.
+Atlanta has an unusually dense network of what we call cultural connectors  people who exist at the intersection of music, food, fashion, and community in ways that are genuinely intertwined rather than siloed. A person who's a DJ might also be a restaurant regular who's connected to a streetwear brand that sponsors local artists. These connections are deep and real.
 
-When VibeCircle gave those connectors a map to broadcast from, the network effects were explosive. One creator bringing their audience into a neighborhood didn't just grow that creator's profile â€” it lit up every other creator and business in that zone.
+When VibeCircle gave those connectors a map to broadcast from, the network effects were explosive. One creator bringing their audience into a neighborhood didn't just grow that creator's profile  it lit up every other creator and business in that zone.
 
 **The Business Community's Early Adoption**
 
@@ -525,7 +528,7 @@ const POSTS_PER_PAGE = 6;
 // Unique authors
 const AUTHORS = [...new Map(POSTS.map(p => [p.author, { name: p.author, role: p.authorRole, avatar: p.avatar }])).values()];
 
-// â”€â”€â”€ HOOKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  HOOKS 
 function useInView(threshold = 0.08) {
   const ref = useRef(null);
   const [v, setV] = useState(false);
@@ -548,7 +551,7 @@ function useWindowWidth() {
   return w;
 }
 
-// â”€â”€â”€ HASH ROUTING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  HASH ROUTING 
 function useRouter() {
   const [route, setRoute] = useState("#/");
 
@@ -575,7 +578,7 @@ function useRouter() {
   return { route, navigate, goBack };
 }
 
-// â”€â”€â”€ TOAST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  TOAST 
 function Toast({ message, onDone }) {
   useEffect(() => {
     const id = setTimeout(onDone, 2400);
@@ -592,9 +595,10 @@ function Toast({ message, onDone }) {
   );
 }
 
-// â”€â”€â”€ THUMBNAIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  THUMBNAIL 
 function Thumbnail({ post, height = "180px", fontSize = "44px" }) {
   const [a, b] = post.thumbGrad;
+  const hasCover = Boolean(post.coverImageUrl);
   return (
     <div style={{
       width: "100%", height, borderRadius: "3px",
@@ -604,24 +608,38 @@ function Thumbnail({ post, height = "180px", fontSize = "44px" }) {
       position: "relative", overflow: "hidden",
       flexShrink: 0,
     }}>
+      {hasCover && (
+        <img
+          src={post.coverImageUrl}
+          alt={post.coverImageAlt || post.title || ""}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            zIndex: 0,
+          }}
+        />
+      )}
       <div style={{
         position: "absolute", inset: 0,
         backgroundImage: `linear-gradient(${a}08 1px,transparent 1px),linear-gradient(90deg,${a}08 1px,transparent 1px)`,
         backgroundSize: "24px 24px",
+        opacity: hasCover ? 0.6 : 1,
+        zIndex: 1,
       }} />
       <div style={{
         position: "absolute", borderRadius: "50%", width: "120px", height: "120px",
         top: "-20px", right: "-20px",
         background: `radial-gradient(circle,${a}30 0%,transparent 70%)`,
+        zIndex: 2,
       }} />
-      <div style={{ fontSize, position: "relative", zIndex: 1, filter: "drop-shadow(0 4px 12px rgba(0,0,0,.5))" }}>
-        {post.emoji}
-      </div>
     </div>
   );
 }
 
-// â”€â”€â”€ SHARED COMPONENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  SHARED COMPONENTS 
 function Reveal({ children, delay = 0, style = {} }) {
   const [ref, v] = useInView();
   return (
@@ -682,21 +700,35 @@ function ReadTime({ t }) {
   );
 }
 
-function AuthorChip({ author, role, avatar, color = C.orange, onClick }) {
+function AuthorChip({ author, role, avatar, avatarUrl, color = C.orange, onClick }) {
   return (
     <div onClick={onClick} style={{ display: "flex", alignItems: "center", gap: "10px", cursor: onClick ? "pointer" : "default" }}
       title={onClick ? `See all posts by ${author}` : undefined}
     >
-      <div style={{
-        width: "32px", height: "32px", borderRadius: "50%",
-        background: `${color}20`, border: `1px solid ${color}40`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: "14px", flexShrink: 0,
-        transition: onClick ? "box-shadow .2s" : undefined,
-      }}
-        onMouseEnter={onClick ? e => e.currentTarget.style.boxShadow = `0 0 0 2px ${color}60` : undefined}
-        onMouseLeave={onClick ? e => e.currentTarget.style.boxShadow = "" : undefined}
-      >{avatar}</div>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={author}
+          style={{
+            width: "32px", height: "32px", borderRadius: "50%",
+            objectFit: "cover", border: `1px solid ${color}40`,
+            flexShrink: 0, transition: onClick ? "box-shadow .2s" : undefined,
+          }}
+          onMouseEnter={onClick ? e => e.currentTarget.style.boxShadow = `0 0 0 2px ${color}60` : undefined}
+          onMouseLeave={onClick ? e => e.currentTarget.style.boxShadow = "" : undefined}
+        />
+      ) : (
+        <div style={{
+          width: "32px", height: "32px", borderRadius: "50%",
+          background: `${color}20`, border: `1px solid ${color}40`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "14px", flexShrink: 0,
+          transition: onClick ? "box-shadow .2s" : undefined,
+        }}
+          onMouseEnter={onClick ? e => e.currentTarget.style.boxShadow = `0 0 0 2px ${color}60` : undefined}
+          onMouseLeave={onClick ? e => e.currentTarget.style.boxShadow = "" : undefined}
+        >{avatar}</div>
+      )}
       <div>
         <div style={{
           fontFamily: "'DM Sans',sans-serif", fontSize: "13px", fontWeight: 600,
@@ -711,7 +743,7 @@ function AuthorChip({ author, role, avatar, color = C.orange, onClick }) {
   );
 }
 
-// â”€â”€â”€ NAV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  NAV 
 function Nav({ navigate, route }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -844,11 +876,11 @@ function Nav({ navigate, route }) {
   );
 }
 
-// â”€â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  FOOTER 
 function NewsletterForm({ color = C.orange }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
-  if (sent) return <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "15px", color, padding: "8px 0" }}>You're in. âœ“</div>;
+  if (sent) return <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "15px", color, padding: "8px 0" }}>You're in. </div>;
   return (
     <div style={{ display: "flex", gap: "8px" }}>
       <input
@@ -872,7 +904,7 @@ function NewsletterForm({ color = C.orange }) {
   );
 }
 
-// â”€â”€â”€ CARD COMPONENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  CARD COMPONENTS 
 function FeaturedCard({ post, navigate }) {
   const [h, setH] = useState(false);
   const catColor = getCatColor(post);
@@ -890,7 +922,7 @@ function FeaturedCard({ post, navigate }) {
         boxShadow: h ? `0 28px 64px rgba(0,0,0,.6)` : "",
       }}
     >
-      <div style={{ height: "3px", background: `linear-gradient(90deg,${catColor},${C.pink})`, transformOrigin: "left", animation: h ? "lineGrow .4s ease forwards" : "none" }} />
+      <div style={{ height: "3px", background: `linear-gradient(90deg,${catColor},${C.orange})`, transformOrigin: "left", animation: h ? "lineGrow .4s ease forwards" : "none" }} />
       <div style={{ padding: "clamp(28px,3vw,44px)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
           <CatBadge cat={post.cat} size="lg" onClick={e => { e.stopPropagation(); navigate(catNav); }} />
@@ -905,7 +937,7 @@ function FeaturedCard({ post, navigate }) {
             <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "clamp(14px,1.5vw,17px)", color: C.dim, lineHeight: 1.75, marginBottom: "28px", maxWidth: "640px" }}>{post.sub}</p>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px" }}>
               <AuthorChip
-                author={post.author} role={post.authorRole} avatar={post.avatar} color={catColor}
+                author={post.author} role={post.authorRole} avatar={post.avatar} avatarUrl={post.authorImageUrl} color={catColor}
                 onClick={e => { e.stopPropagation(); navigate(authorNav); }}
               />
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -914,7 +946,7 @@ function FeaturedCard({ post, navigate }) {
                   fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "2px",
                   padding: "8px 20px", background: catColor, color: C.bg, borderRadius: "2px",
                   boxShadow: h ? `0 8px 24px ${catColor}50` : "", transition: "box-shadow .3s",
-                }}>Read â†’</span>
+                }}>Read </span>
               </div>
             </div>
           </div>
@@ -949,7 +981,7 @@ function PostCard({ post, navigate, variant = "default" }) {
           <h4 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(14px,1.6vw,18px)", color: h ? catColor : C.white, lineHeight: 1.05, marginBottom: "4px", transition: "color .2s", letterSpacing: "-.2px" }}>{post.title}</h4>
           <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{post.sub}</p>
         </div>
-        <div style={{ color: h ? catColor : "rgba(255,255,255,0.15)", fontSize: "14px", flexShrink: 0, marginTop: "14px", transition: "color .2s, transform .2s", transform: h ? "translateX(3px)" : "none" }}>â†’</div>
+        <div style={{ color: h ? catColor : "rgba(255,255,255,0.15)", fontSize: "14px", flexShrink: 0, marginTop: "14px", transition: "color .2s, transform .2s", transform: h ? "translateX(3px)" : "none" }}></div>
       </div>
     );
   }
@@ -977,7 +1009,7 @@ function PostCard({ post, navigate, variant = "default" }) {
         <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.dim, lineHeight: 1.65, marginBottom: "18px", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{post.sub}</p>
         <div style={{ borderTop: `1px solid ${h ? catColor + "30" : "rgba(255,255,255,0.06)"}`, paddingTop: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", transition: "border-color .3s", flexWrap: "wrap" }}>
           <AuthorChip
-            author={post.author} role={post.authorRole} avatar={post.avatar} color={catColor}
+            author={post.author} role={post.authorRole} avatar={post.avatar} avatarUrl={post.authorImageUrl} color={catColor}
             onClick={e => { e.stopPropagation(); navigate(authorNav); }}
           />
           <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "11px", color: C.dimmer }}>{post.date}</span>
@@ -987,7 +1019,7 @@ function PostCard({ post, navigate, variant = "default" }) {
   );
 }
 
-// â”€â”€â”€ SHARE BUTTONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  SHARE BUTTONS 
 function ShareButtons({ post, onToast }) {
   const [url, setUrl] = useState("");
 
@@ -1003,13 +1035,13 @@ function ShareButtons({ post, onToast }) {
 
   const shareX = () => {
     if (!url) return;
-    const text = encodeURIComponent(`"${post.title}" Ã¢â‚¬â€ VibeCircle Blog`);
+    const text = encodeURIComponent(`"${post.title}"  VibeCircle Blog`);
     window.open(`https://x.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
   };
 
   const btns = [
-    { label: "Copy Link", icon: "ðŸ”—", action: copyLink },
-    { label: "Share on X", icon: "ð•", action: shareX },
+    { label: "Copy Link", icon: "", action: copyLink },
+    { label: "Share on X", icon: "", action: shareX },
   ];
 
   return (
@@ -1032,7 +1064,7 @@ function ShareButtons({ post, onToast }) {
   );
 }
 
-// â”€â”€â”€ BODY RENDERER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  BODY RENDERER 
 function RenderBody({ text, catColor }) {
   const paras = text.trim().split("\n\n").filter(Boolean);
   return (
@@ -1056,11 +1088,11 @@ function RenderBody({ text, catColor }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 // ARTICLE VIEW
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 function ArticleView({ slug, navigate }) {
-  // â”€â”€ DATA: try Sanity first, fall back to static POSTS â”€â”€
+  //  DATA: try Sanity first, fall back to static POSTS 
   const { data: sanityData, done: sanityDone } = useSanityQuery(QUERIES.bySlug, { slug }, [slug]);
   const { data: sanityAll } = useSanityQuery(QUERIES.allPosts, {}, []);
   const staticPost = POSTS.find(p => p.slug === slug);
@@ -1089,7 +1121,7 @@ function ArticleView({ slug, navigate }) {
   if (!post) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.bg, flexDirection: "column", gap: "16px", padding: "120px 24px" }}>
-        <div style={{ fontSize: "48px", opacity: .3 }}>ðŸ“­</div>
+        <div style={{ fontSize: "48px", opacity: .3 }}></div>
         <h2 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "36px", color: C.white }}>Post Not Found</h2>
         <button onClick={() => navigate("#/")} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "3px", padding: "12px 28px", background: C.orange, color: C.bg, border: "none", borderRadius: "2px", cursor: "pointer" }}>Back to Blog</button>
       </div>
@@ -1109,20 +1141,20 @@ function ArticleView({ slug, navigate }) {
 
       {/* READING PROGRESS */}
       <div style={{ position: "fixed", top: "68px", left: 0, right: 0, height: "2px", background: "rgba(255,255,255,0.05)", zIndex: 100 }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg,${catColor},${C.pink})`, transition: "width .1s linear" }} />
+        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg,${catColor},${C.orange})`, transition: "width .1s linear" }} />
       </div>
 
       {/* HERO */}
       <section style={{ paddingTop: "110px", padding: "110px clamp(20px,4vw,56px) 60px", position: "relative", overflow: "hidden", borderBottom: `1px solid ${C.border}` }}>
         <Orb top="-15%" right="-5%" size={600} color={catColor} opacity={0.09} />
-        <Orb bottom="-30%" left="15%" size={440} color={C.pink} opacity={0.06} delay="3s" />
+        <Orb bottom="-30%" left="15%" size={440} color={C.orange} opacity={0.06} delay="3s" />
         <div style={{ maxWidth: "820px", margin: "0 auto", position: "relative", zIndex: 2 }}>
           {/* BREADCRUMB */}
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "28px", animation: "fadeUp .45s ease forwards", opacity: 0 }}>
             <button onClick={() => navigate("#/")} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", transition: "color .2s", padding: 0 }}
               onMouseEnter={e => e.target.style.color = C.white} onMouseLeave={e => e.target.style.color = C.dimmer}
             >Blog</button>
-            <span style={{ color: "rgba(255,255,255,0.15)" }}>â€º</span>
+            <span style={{ color: "rgba(255,255,255,0.15)" }}></span>
             <CatBadge cat={post.cat} onClick={() => navigate(post.catSlug ? `#/cat/${post.catSlug}` : `#/cat/${encodeURIComponent(post.cat)}`)} />
           </div>
 
@@ -1140,7 +1172,7 @@ function ArticleView({ slug, navigate }) {
           {/* META */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px", paddingTop: "22px", borderTop: `1px solid ${C.border}`, animation: "fadeUp .5s .2s ease forwards", opacity: 0 }}>
             <AuthorChip
-              author={post.author} role={post.authorRole} avatar={post.avatar} color={catColor}
+              author={post.author} role={post.authorRole} avatar={post.avatar} avatarUrl={post.authorImageUrl} color={catColor}
               onClick={() => navigate(post.authorSlug ? `#/author/${post.authorSlug}` : `#/author/${encodeURIComponent(post.author)}`)}
             />
             <div style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
@@ -1157,7 +1189,7 @@ function ArticleView({ slug, navigate }) {
 
           {/* ARTICLE */}
           <article ref={articleRef}>
-            <div style={{ height: "3px", background: `linear-gradient(90deg,${catColor},${C.pink},transparent)`, borderRadius: "2px", marginBottom: "44px", transformOrigin: "left", animation: "lineGrow .6s .25s ease both" }} />
+            <div style={{ height: "3px", background: `linear-gradient(90deg,${catColor},${C.orange},transparent)`, borderRadius: "2px", marginBottom: "44px", transformOrigin: "left", animation: "lineGrow .6s .25s ease both" }} />
             {post._sanity
               ? <PortableTextRenderer blocks={post.body} catColor={catColor} />
               : <RenderBody text={post.body} catColor={catColor} />
@@ -1184,12 +1216,16 @@ function ArticleView({ slug, navigate }) {
             {/* AUTHOR CARD */}
             <div style={{ marginTop: "40px", padding: "28px", background: "rgba(255,255,255,0.02)", border: `1px solid ${catColor}30`, borderRadius: "4px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "12px" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: `${catColor}20`, border: `2px solid ${catColor}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>{post.avatar}</div>
+                {post.authorImageUrl ? (
+                  <img src={post.authorImageUrl} alt={post.author} style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${catColor}50` }} />
+                ) : (
+                  <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: `${catColor}20`, border: `2px solid ${catColor}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>{post.avatar}</div>
+                )}
                 <div>
                   <button onClick={() => navigate(post.authorSlug ? `#/author/${post.authorSlug}` : `#/author/${encodeURIComponent(post.author)}`)} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "18px", color: catColor, letterSpacing: ".5px", background: "none", border: "none", cursor: "pointer", padding: 0, display: "block", transition: "opacity .2s" }}
                     onMouseEnter={e => e.currentTarget.style.opacity = ".8"} onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                   >{post.author}</button>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer }}>{post.authorRole} Â· VibeCircle</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer }}>{post.authorRole}  VibeCircle</div>
                 </div>
               </div>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.dim, lineHeight: 1.65, marginBottom: "12px" }}>
@@ -1198,7 +1234,7 @@ function ArticleView({ slug, navigate }) {
               <button onClick={() => navigate(post.authorSlug ? `#/author/${post.authorSlug}` : `#/author/${encodeURIComponent(post.author)}`)} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "11px", letterSpacing: "2px", padding: "7px 16px", background: "transparent", color: catColor, border: `1px solid ${catColor}40`, borderRadius: "2px", cursor: "pointer", transition: "all .2s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = `${catColor}15`; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-              >All Posts by {post.author.split(" ")[0]} â†’</button>
+              >All Posts by {post.author.split(" ")[0]} </button>
             </div>
 
             {/* PREV / NEXT NAV */}
@@ -1208,7 +1244,7 @@ function ArticleView({ slug, navigate }) {
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.orange; e.currentTarget.style.background = "rgba(255,107,0,0.06)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                 >
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "10px", letterSpacing: "3px", color: C.dimmer, marginBottom: "6px" }}>â† Older</div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "10px", letterSpacing: "3px", color: C.dimmer, marginBottom: "6px" }}> Older</div>
                   <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(13px,1.4vw,16px)", color: C.white, lineHeight: 1.1 }}>{prevPost.title}</div>
                 </div>
               ) : <div />}
@@ -1217,7 +1253,7 @@ function ArticleView({ slug, navigate }) {
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.orange; e.currentTarget.style.background = "rgba(255,107,0,0.06)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
                 >
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "10px", letterSpacing: "3px", color: C.dimmer, marginBottom: "6px" }}>Newer â†’</div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "10px", letterSpacing: "3px", color: C.dimmer, marginBottom: "6px" }}>Newer </div>
                   <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(13px,1.4vw,16px)", color: C.white, lineHeight: 1.1 }}>{nextPost.title}</div>
                 </div>
               ) : <div />}
@@ -1237,7 +1273,7 @@ function ArticleView({ slug, navigate }) {
             <Reveal delay={.3}>
               <div style={{ marginTop: "28px", padding: "24px", background: `${C.orange}0C`, border: `1px solid ${C.orange}30`, borderRadius: "4px" }}>
                 <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "18px", color: C.white, lineHeight: 1.1, marginBottom: "8px" }}>The Pulse Newsletter</div>
-                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dim, lineHeight: 1.6, marginBottom: "14px" }}>City culture, creator news, and platform drops â€” every Tuesday.</p>
+                <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dim, lineHeight: 1.6, marginBottom: "14px" }}>City culture, creator news, and platform drops  every Tuesday.</p>
                 <NewsletterForm />
               </div>
             </Reveal>
@@ -1265,16 +1301,16 @@ function ArticleView({ slug, navigate }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 // BLOG INDEX
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 function BlogIndex({ navigate, filterCat = null }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   useEffect(() => { setPage(1); setSearch(""); }, [filterCat]);
 
-  // â”€â”€ DATA: try Sanity, fall back to static â”€â”€
+  //  DATA: try Sanity, fall back to static 
   const query  = filterCat ? QUERIES.byCat : QUERIES.allPosts;
   const params = filterCat ? { slug: filterCat } : {};
   const { data: sanityPosts, done: sanityDone } = useSanityQuery(query, params, [filterCat]);
@@ -1391,7 +1427,7 @@ function BlogIndex({ navigate, filterCat = null }) {
         label: c.title,
         slug: c.slug || c.title,
         color: c.color || CAT_COLORS[c.title] || C.orange,
-        count: c.count ?? 0,
+        count: c.count || 0,
       }))
     : Object.entries(CAT_COLORS).map(([cat, color]) => ({
         label: cat,
@@ -1426,7 +1462,7 @@ function BlogIndex({ navigate, filterCat = null }) {
       <section style={{ paddingTop: "120px", padding: "120px clamp(20px,4vw,56px) 56px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: `linear-gradient(${C.orange}05 1px,transparent 1px),linear-gradient(90deg,${C.orange}05 1px,transparent 1px)`, backgroundSize: "60px 60px" }} />
         <Orb top="-15%" right="-5%" size={640} opacity={0.11} />
-        <Orb bottom="-30%" left="20%" size={480} color={C.pink} opacity={0.07} delay="4s" />
+        <Orb bottom="-30%" left="20%" size={480} color={C.orange} opacity={0.07} delay="4s" />
         <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative", zIndex: 2 }}>
           {filterCat ? (
             <Reveal>
@@ -1436,13 +1472,13 @@ function BlogIndex({ navigate, filterCat = null }) {
               </h1>
               <button onClick={() => navigate("#/")} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", transition: "color .2s", padding: 0 }}
                 onMouseEnter={e => e.target.style.color = C.white} onMouseLeave={e => e.target.style.color = C.dimmer}
-              >â† All posts</button>
+              > All posts</button>
             </Reveal>
           ) : (
             <div>
               <div style={{ animation: "fadeUp .5s ease forwards", opacity: 0, marginBottom: "18px" }}><Tag>VibeCircle Journal</Tag></div>
               <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(56px,9vw,110px)", lineHeight: .88, color: C.white, animation: "fadeUp .52s .07s ease forwards", opacity: 0, marginBottom: "14px", letterSpacing: "-2px" }}>
-                THE<br /><span style={{ WebkitTextStroke: "2px #FF6B00", color: "transparent" }}>PULSE.</span>
+                THE<br /><span style={{ WebkitTextStroke: "2px #FF6B00", color: "transparent", letterSpacing: "2px" }}>PULSE<span style={{ marginLeft: "6px" }}>.</span></span>
               </h1>
               <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "clamp(14px,1.6vw,18px)", color: C.dim, maxWidth: "480px", lineHeight: 1.75, animation: "fadeUp .52s .14s ease forwards", opacity: 0 }}>
                 Insights on city culture, the creator economy, and the technology making it all move.
@@ -1486,7 +1522,7 @@ function BlogIndex({ navigate, filterCat = null }) {
             })}
           </div>
           <div style={{ position: "relative", flexShrink: 0 }}>
-            <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.2)", fontSize: "12px", pointerEvents: "none" }}>ðŸ”</span>
+            <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.2)", fontSize: "12px", pointerEvents: "none" }}></span>
             <input placeholder="Search..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "2px", padding: "7px 12px 7px 28px", fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.white, outline: "none", width: "160px", transition: "border-color .2s, width .3s" }}
               onFocus={e => { e.target.style.borderColor = C.orange; e.target.style.width = "200px"; }}
@@ -1518,7 +1554,7 @@ function BlogIndex({ navigate, filterCat = null }) {
           <Reveal style={{ marginBottom: "28px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
               <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "11px", letterSpacing: "3px", color: C.dimmer }}>
-                {search ? `"${search}" â€” ` : ""}{filtered.length} Article{filtered.length !== 1 ? "s" : ""}{filterCat ? ` in ${filterCat}` : ""}
+                {search ? `"${search}"  ` : ""}{filtered.length} Article{filtered.length !== 1 ? "s" : ""}{filterCat ? ` in ${filterCat}` : ""}
               </span>
               <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.05)" }} />
             </div>
@@ -1568,7 +1604,11 @@ function BlogIndex({ navigate, filterCat = null }) {
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                         >
-                          <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", flexShrink: 0 }}>{a.avatar}</div>
+                          {a.imageUrl ? (
+                            <img src={a.imageUrl} alt={a.name} style={{ width: "28px", height: "28px", borderRadius: "50%", objectFit: "cover", border: "1px solid rgba(255,107,0,0.3)", flexShrink: 0 }} />
+                          ) : (
+                            <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,107,0,0.15)", border: "1px solid rgba(255,107,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", flexShrink: 0 }}>{a.avatar}</div>
+                          )}
                         <div style={{ textAlign: "left" }}>
                           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "13px", color: C.white }}>{a.name}</div>
                           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "10px", color: C.dimmer }}>{a.role}</div>
@@ -1587,7 +1627,7 @@ function BlogIndex({ navigate, filterCat = null }) {
               </div>
             ) : (
               <div style={{ textAlign: "center", padding: "80px 0" }}>
-                <div style={{ fontSize: "40px", marginBottom: "14px", opacity: .3 }}>ðŸ“­</div>
+                <div style={{ fontSize: "40px", marginBottom: "14px", opacity: .3 }}></div>
                 <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "26px", color: C.white, marginBottom: "8px" }}>Nothing found</div>
                 <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "14px", color: C.dimmer }}>Try a different search or category.</p>
               </div>
@@ -1598,11 +1638,11 @@ function BlogIndex({ navigate, filterCat = null }) {
           {totalPages > 1 && (
             <Reveal style={{ marginTop: "52px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                <button onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === 1} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "2px", padding: "10px 20px", background: "transparent", color: page === 1 ? "rgba(255,255,255,0.2)" : C.dim, border: `1px solid ${page === 1 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`, borderRadius: "2px", cursor: page === 1 ? "not-allowed" : "pointer", transition: "all .2s" }}>â† Prev</button>
+                <button onClick={() => { setPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === 1} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "2px", padding: "10px 20px", background: "transparent", color: page === 1 ? "rgba(255,255,255,0.2)" : C.dim, border: `1px solid ${page === 1 ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`, borderRadius: "2px", cursor: page === 1 ? "not-allowed" : "pointer", transition: "all .2s" }}> Prev</button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                   <button key={n} onClick={() => { setPage(n); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "14px", width: "36px", height: "36px", background: page === n ? C.orange : "transparent", color: page === n ? C.bg : C.dim, border: `1px solid ${page === n ? C.orange : "rgba(255,255,255,0.12)"}`, borderRadius: "2px", cursor: "pointer", transition: "all .2s" }}>{n}</button>
                 ))}
-                <button onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === totalPages} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "2px", padding: "10px 20px", background: "transparent", color: page === totalPages ? "rgba(255,255,255,0.2)" : C.dim, border: `1px solid ${page === totalPages ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`, borderRadius: "2px", cursor: page === totalPages ? "not-allowed" : "pointer", transition: "all .2s" }}>Next â†’</button>
+                <button onClick={() => { setPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }} disabled={page === totalPages} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "2px", padding: "10px 20px", background: "transparent", color: page === totalPages ? "rgba(255,255,255,0.2)" : C.dim, border: `1px solid ${page === totalPages ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)"}`, borderRadius: "2px", cursor: page === totalPages ? "not-allowed" : "pointer", transition: "all .2s" }}>Next </button>
               </div>
             </Reveal>
           )}
@@ -1613,7 +1653,7 @@ function BlogIndex({ navigate, filterCat = null }) {
       <div style={{ background: C.orange, padding: "18px 0", overflow: "hidden" }}>
         <div style={{ display: "flex", animation: "marquee 20s linear infinite", whiteSpace: "nowrap" }}>
           {[...Array(4)].map((_, x) =>
-            ["City Culture", "Â·", "Creator Economy", "Â·", "Brand Strategy", "Â·", "Music & Events", "Â·", "Tech & Maps", "Â·", "Campus Life", "Â·"].map((wd, i) => (
+            ["City Culture", "", "Creator Economy", "", "Brand Strategy", "", "Music & Events", "", "Tech & Maps", "", "Campus Life", ""].map((wd, i) => (
               <span key={`${x}-${i}`} style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "13px", letterSpacing: "3px", color: "rgba(5,5,10,0.6)", marginRight: "28px" }}>{wd}</span>
             ))
           )}
@@ -1623,9 +1663,9 @@ function BlogIndex({ navigate, filterCat = null }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 // AUTHOR PAGE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 function AuthorPage({ name, navigate }) {
   const decoded = decodeURIComponent(name);
   // Try Sanity by author slug or name, fall back to matching static posts by name
@@ -1636,7 +1676,7 @@ function AuthorPage({ name, navigate }) {
     : staticPosts;
   const firstPost = posts[0];
   const author = firstPost
-    ? { name: firstPost.author, avatar: firstPost.avatar, role: firstPost.authorRole }
+    ? { name: firstPost.author, avatar: firstPost.avatar, role: firstPost.authorRole, imageUrl: firstPost.authorImageUrl }
     : AUTHORS.find(a => a.name === decoded);
   const color = firstPost ? getCatColor(firstPost) : C.orange;
 
@@ -1653,10 +1693,14 @@ function AuthorPage({ name, navigate }) {
         <Orb top="-10%" right="-5%" size={500} color={color} opacity={0.1} />
         <div style={{ maxWidth: "1200px", margin: "0 auto", position: "relative", zIndex: 2 }}>
           <div style={{ animation: "fadeUp .45s ease forwards", opacity: 0, marginBottom: "28px" }}>
-            <button onClick={() => navigate("#/")} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={e => e.target.style.color = C.white} onMouseLeave={e => e.target.style.color = C.dimmer}>â† All Posts</button>
+            <button onClick={() => navigate("#/")} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer, background: "none", border: "none", cursor: "pointer", padding: 0, transition: "color .2s" }} onMouseEnter={e => e.target.style.color = C.white} onMouseLeave={e => e.target.style.color = C.dimmer}> All Posts</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "24px", flexWrap: "wrap", animation: "fadeUp .5s .05s ease forwards", opacity: 0, marginBottom: "24px" }}>
-            <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: `${color}20`, border: `3px solid ${color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", flexShrink: 0 }}>{author.avatar}</div>
+            {author.imageUrl ? (
+              <img src={author.imageUrl} alt={author.name} style={{ width: "80px", height: "80px", borderRadius: "50%", objectFit: "cover", border: `3px solid ${color}50`, flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: "80px", height: "80px", borderRadius: "50%", background: `${color}20`, border: `3px solid ${color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px", flexShrink: 0 }}>{author.avatar}</div>
+            )}
             <div>
               <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "clamp(36px,5vw,64px)", color: C.white, lineHeight: .95, letterSpacing: "-.5px" }}>{author.name}</h1>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "15px", color, marginTop: "6px" }}>{author.role}</div>
@@ -1676,9 +1720,9 @@ function AuthorPage({ name, navigate }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 // AUTHORS LIST PAGE
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 function AuthorsPage({ navigate }) {
   return (
     <div style={{ background: C.bg, color: C.white, minHeight: "100vh" }}>
@@ -1706,21 +1750,22 @@ function AuthorsList({ navigate }) {
   if (authorsDone && Array.isArray(sanityAuthors) && sanityAuthors.length > 0) {
     authorsToShow = sanityAuthors.map(normalizeSanityAuthor);
   } else if (postsDone && Array.isArray(sanityPosts) && sanityPosts.length > 0) {
-    const normalized = sanityPosts.map(normalizeSanityPost);
-    const map = new Map();
-    normalized.forEach((p) => {
-      if (!p.author) return;
-      const key = p.authorSlug || p.author;
-      const existing = map.get(key) || {
-        name: p.author,
-        slug: p.authorSlug || encodeURIComponent(p.author),
-        role: p.authorRole,
-        avatar: p.avatar,
-        count: 0,
-      };
-      existing.count += 1;
-      map.set(key, existing);
-    });
+      const normalized = sanityPosts.map(normalizeSanityPost);
+      const map = new Map();
+      normalized.forEach((p) => {
+        if (!p.author) return;
+        const key = p.authorSlug || p.author;
+        const existing = map.get(key) || {
+          name: p.author,
+          slug: p.authorSlug || encodeURIComponent(p.author),
+          role: p.authorRole,
+          avatar: p.avatar,
+          imageUrl: p.authorImageUrl,
+          count: 0,
+        };
+        existing.count += 1;
+        map.set(key, existing);
+      });
     authorsToShow = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   } else {
     authorsToShow = AUTHORS.map(a => ({
@@ -1743,7 +1788,11 @@ function AuthorsList({ navigate }) {
               onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.background = `${color}08`; e.currentTarget.style.transform = "translateY(-4px)"; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.transform = ""; }}
             >
-              <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: `${color}20`, border: `2px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", marginBottom: "16px" }}>{a.avatar}</div>
+              {a.imageUrl ? (
+                <img src={a.imageUrl} alt={a.name} style={{ width: "56px", height: "56px", borderRadius: "50%", objectFit: "cover", border: `2px solid ${color}40`, marginBottom: "16px" }} />
+              ) : (
+                <div style={{ width: "56px", height: "56px", borderRadius: "50%", background: `${color}20`, border: `2px solid ${color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", marginBottom: "16px" }}>{a.avatar}</div>
+              )}
               <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "22px", color: C.white, marginBottom: "4px" }}>{a.name}</div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color, marginBottom: "12px" }}>{a.role}</div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: "12px", color: C.dimmer }}>{a.count} article{a.count !== 1 ? "s" : ""}</div>
@@ -1755,9 +1804,9 @@ function AuthorsList({ navigate }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 // ROOT APP
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// 
 export default function App() {
   const { route, navigate } = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -1798,5 +1847,4 @@ export default function App() {
     </>
   );
 }
-
 

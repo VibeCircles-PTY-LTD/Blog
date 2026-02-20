@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { C, CAT_COLORS } from "../lib/blog-data";
 import { routes } from "../lib/routes";
@@ -47,5 +47,7 @@ export default function AuthorsPage({ authors = [] }) {
     </div>
   );
 }
+
+
 
 

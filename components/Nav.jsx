@@ -1,17 +1,22 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { C } from "../lib/blog-data";
+import { C, CAT_COLORS } from "../lib/blog-data";
 import { routes } from "../lib/routes";
 import { useAppNav, useWindowWidth } from "./hooks";
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const w = useWindowWidth();
   const { navigate } = useAppNav();
   const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -27,6 +32,8 @@ export default function Nav() {
     { label: "Blog", href: routes.home(), isActive: pathname === "/" || pathname.startsWith("/category") },
     { label: "Authors", href: routes.authors(), isActive: pathname.startsWith("/author") || pathname === routes.authors() },
   ];
+
+  if (!mounted) return null;
 
   return (
     <nav style={{
@@ -50,7 +57,7 @@ export default function Nav() {
         </button>
 
         {w > 760 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "18px", flexWrap: "wrap" }}>
             {links.map((l) => (
               <button key={l.label} onClick={() => navigate(l.href)} style={{
                 fontFamily: "'Bebas Neue',sans-serif",
@@ -80,7 +87,21 @@ export default function Nav() {
             }}>Read Latest</button>
           </div>
         ) : (
-          <button onClick={() => setMenuOpen((o) => !o)} style={{ background: "transparent", border: "none", color: C.white, cursor: "pointer", fontSize: "20px" }}>☰</button>
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label="Toggle menu"
+            style={{
+              background: "transparent",
+              border: "none",
+              color: C.white,
+              cursor: "pointer",
+              fontSize: "20px",
+              lineHeight: 1,
+              letterSpacing: "2px",
+            }}
+          >
+            ☰
+          </button>
         )}
       </div>
 
@@ -117,5 +138,9 @@ export default function Nav() {
     </nav>
   );
 }
+
+
+
+
 
 
